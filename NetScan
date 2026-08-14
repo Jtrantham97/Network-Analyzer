@@ -1,0 +1,120 @@
+# Imports
+from json import scanner
+import socket
+import requests
+import nmap
+from datetime import datetime
+
+
+# function to scan ports on a target IP address
+def port_scan(target_ip, start_port, end_port):
+    print(f"Scanning target IP: {target_ip} from {start_port} to {end_port}...")
+    open_ports = []
+    for port in range(start_port, end_port + 1):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex((target_ip, port))
+        if result == 0:
+            open_ports.append(port)
+        sock.close()
+    return open_ports
+
+
+# function to get banner information from a target IP and port if available
+def get_banner(target_ip, port):
+    print(f"Getting banner for IP Address {target_ip} on port {port}...")
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((target_ip, port))
+        sock.settimeout(5)
+        banner = sock.recv(1024).decode('utf-8', errors='ignore')
+        sock.close()
+        return banner.strip()
+    except:
+        return None
+
+
+# function to check for vulnerabilities on a target IP address
+def check_vulnerabilities(target_ip):
+    print(f"Scanning for vulnerabilities on target IP: {target_ip}...")
+    scanner = nmap.PortScanner()
+    try:
+        scanner.scan(
+            hosts=target_ip, 
+            arguments="-sV --script=vuln"
+            )
+        return scanner
+    except Exception as e:
+        print(f"An error occurred while scanning for vulnerabilities: {e}")
+        return None
+    
+
+def display_vulnerabilities(scanner, target_ip):
+    if not scanner or target_ip not in scanner.all_hosts():
+        print(f"No vulnerabilities found for the IP address: {target_ip}")
+        return
+
+    print("\n" + "=" * 50)  
+    print("VULNERABILITY SCAN RESULTS")
+    print("=" * 50)
+
+    host = scanner[target_ip]
+    for protocol in host.all_protocols():
+        for port in host[protocol]:
+            port_info = host[protocol][port]
+
+            print(f"\nPort: {port}")
+            print(f"Service: {port_info.get('name', 'Unknown')}")
+            print(f"Product: {port_info.get('product', 'Unknown')}")
+            print(f"Version: {port_info.get('version', 'Unknown')}")
+
+            if "script" in port_info:
+                print("\nNmmap Script Results:")
+
+                for script_name, script_output in port_info["script"].items():
+                    print(f"\nScript: {script_name}")
+                    for line in script_output.splitlines():
+                        line = line.strip()
+                        if line:
+                            print(f"Output: {line}")
+
+
+
+# Function to scan network port range 
+def scan_net(target_ip, start_port, end_port):
+    print(f"Scanning network for target IP: {target_ip}")
+    start_time = datetime.now()
+
+    open_ports = port_scan(target_ip, start_port, end_port)
+    if open_ports:
+        print(f"open ports found: {open_ports}")
+    else:
+        print("No open ports found.")
+    for port in open_ports:
+        banner = get_banner(target_ip, port)
+        if banner:
+            print(f"Port {port}: {banner}:")
+        else:
+            print(f"IP Address {target_ip} on port {port}: No banner found.")
+
+# Scans for vulnerabilities
+    scanner = check_vulnerabilities(target_ip)
+    if scanner:
+        display_vulnerabilities(scanner, target_ip)
+    else:
+        print(f"No vulnerabilities found for Target IP Address: {target_ip}")
+
+    end_time = datetime.now()
+    total_time = end_time - start_time
+    print(f"Scan Completed!")
+    print(f"Scan took {total_time} seconds to complete.")
+
+
+# variables
+if __name__ == "__main__":
+    target_ip = input("Enter the target IP address: ")
+    start_port = int(input("Enter the starting port number: "))
+    end_port = int(input("Enter the ending port number: "))
+
+    scan_net(target_ip, start_port, end_port)
+    
