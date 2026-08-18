@@ -1,12 +1,27 @@
-# Imports
+# region: Imports
 from json import scanner
 import socket
 import requests
 import nmap
+import logging
+import sys
 from datetime import datetime
+#endregion
 
 
-# function to scan ports on a target IP address
+# region: Logging
+
+logging.basicConfig(
+    filename= 'network_scan.log',
+    level= logging.INFO,
+    format= '%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)\
+
+# endregion
+
+
+# Function to scan ports on a target IP address
 def port_scan(target_ip, start_port, end_port):
     print(f"Scanning target IP: {target_ip} from {start_port} to {end_port}...")
     open_ports = []
@@ -16,11 +31,13 @@ def port_scan(target_ip, start_port, end_port):
         result = sock.connect_ex((target_ip, port))
         if result == 0:
             open_ports.append(port)
+            logger.info(f"Port {port} on {target_ip} is open.")
         sock.close()
+    logger.info(f"Port scan completed for {target_ip}. Open ports: {open_ports}")    
     return open_ports
 
 
-# function to get banner information from a target IP and port if available
+# Function to get banner information from a target IP and port if available
 def get_banner(target_ip, port):
     print(f"Getting banner for IP Address {target_ip} on port {port}...")
     try:
@@ -34,7 +51,7 @@ def get_banner(target_ip, port):
         return None
 
 
-# function to check for vulnerabilities on a target IP address
+# Function to check for vulnerabilities on a target IP address
 def check_vulnerabilities(target_ip):
     print(f"Scanning for vulnerabilities on target IP: {target_ip}...")
     scanner = nmap.PortScanner()
@@ -46,17 +63,21 @@ def check_vulnerabilities(target_ip):
         return scanner
     except Exception as e:
         print(f"An error occurred while scanning for vulnerabilities: {e}")
+        logger.error(f"An error occurred while scanning for vulnerabilities on {target_ip} ")
         return None
-    
 
+    
+# Function to display vulnerabilities found on a target IP address
 def display_vulnerabilities(scanner, target_ip):
     if not scanner or target_ip not in scanner.all_hosts():
         print(f"No vulnerabilities found for the IP address: {target_ip}")
+        logger.info(f"No vulnerabilities found for the IP address: {target_ip}")
         return
 
     print("\n" + "=" * 50)  
     print("VULNERABILITY SCAN RESULTS")
     print("=" * 50)
+    logger.info(f"Displaying the vulnerabilities found for the IP address: {target_ip}")
 
     host = scanner[target_ip]
     for protocol in host.all_protocols():
@@ -69,17 +90,59 @@ def display_vulnerabilities(scanner, target_ip):
             print(f"Version: {port_info.get('version', 'Unknown')}")
 
             if "script" in port_info:
-                print("\nNmmap Script Results:")
-
+                print("\nNmap Script Results:")
                 for script_name, script_output in port_info["script"].items():
                     print(f"\nScript: {script_name}")
                     for line in script_output.splitlines():
                         line = line.strip()
                         if line:
                             print(f"Output: {line}")
+                            logger.info(
+                                f"Scan results: "
+                                f"IP Address: {target_ip} "
+                                f"Port: {port} "
+                                f"Service: {port_info.get('name', 'Unknown')} "
+                                f"Product: {port_info.get('product', 'Unknown')} "
+                                f"Version: {port_info.get('version', 'Unknown')} "
+                                f"Script: {script_name} "
+                                f"Output: {line}"
+                            )
 
 
+# Function to detect the operating system of a target IP address                          
+def detect_os(target_ip):
+    scanner = nmap.PortScanner()
+    try:
+        scanner.scan(hosts=target_ip, arguments="-O")
+        if target_ip not in scanner.all_hosts():
+            logger.warning(f"OS could not be detected for {target_ip}. No hosts found in scan results.")
+            return None
+        os_matches = scanner[target_ip]["os_match"]
 
+        if os_matches:
+            os_name = os_matches[0].get("name", "Unknown")
+            accuracy = os_matches[0].get("accuracy", "Unknown")
+
+            logger.info(
+                f"Operating System detected for {target_ip}. "
+                f"OS: {os_name} with accuracy of {accuracy}%"
+                )
+
+            return {
+                "name": os_name,
+                "accuracy": accuracy
+            }
+        logger.warning(f"OS could not be detected for {target_ip}")
+           
+    except Exception as e:
+        print(f"An error occured while trying to detect the Operating System: {e}")
+        logger.error(f"An error occured while detecting the Operating System "
+                     f"IP Address: {target_ip} "
+                     f"Error: {e}"
+        )
+    return None
+
+   
 # Function to scan network port range 
 def scan_net(target_ip, start_port, end_port):
     print(f"Scanning network for target IP: {target_ip}")
@@ -104,17 +167,26 @@ def scan_net(target_ip, start_port, end_port):
     else:
         print(f"No vulnerabilities found for Target IP Address: {target_ip}")
 
+#Detect Operating System
+    os_info = detect_os(target_ip)
+    if os_info:
+        print(f"\nOperating System Detected: {os_info['name']} with accuracy of {os_info['accuracy']}%")
+    else:
+        print("\nOperating System could not be detected.")
+
     end_time = datetime.now()
     total_time = end_time - start_time
     print(f"Scan Completed!")
     print(f"Scan took {total_time} seconds to complete.")
 
 
-# variables
+# Main function to run the network scan
 if __name__ == "__main__":
+# Get user input for target IP and port range
     target_ip = input("Enter the target IP address: ")
     start_port = int(input("Enter the starting port number: "))
     end_port = int(input("Enter the ending port number: "))
 
+# Run the network scan function
     scan_net(target_ip, start_port, end_port)
     
