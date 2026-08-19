@@ -1,7 +1,5 @@
 # region: Imports
-from json import scanner
 import socket
-import requests
 import nmap
 import logging
 import sys
@@ -10,14 +8,12 @@ from datetime import datetime
 
 
 # region: Logging
-
 logging.basicConfig(
     filename= 'network_scan.log',
     level= logging.INFO,
     format= '%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)\
-
 # endregion
 
 
@@ -33,7 +29,8 @@ def port_scan(target_ip, start_port, end_port):
             open_ports.append(port)
             logger.info(f"Port {port} on {target_ip} is open.")
         sock.close()
-    logger.info(f"Port scan completed for {target_ip}. Open ports: {open_ports}")    
+    logger.info(f"Port scan completed for {target_ip}. "
+                f"Open ports: {open_ports}")    
     return open_ports
 
 
@@ -47,7 +44,8 @@ def get_banner(target_ip, port):
         banner = sock.recv(1024).decode('utf-8', errors='ignore')
         sock.close()
         return banner.strip()
-    except:
+    except Exception as e:
+        logger.error(f"An error occurred while getting banner for {target_ip} on port {port}: {e}")
         return None
 
 
@@ -63,7 +61,7 @@ def check_vulnerabilities(target_ip):
         return scanner
     except Exception as e:
         print(f"An error occurred while scanning for vulnerabilities: {e}")
-        logger.error(f"An error occurred while scanning for vulnerabilities on {target_ip} ")
+        logger.error(f"An error occurred while scanning for vulnerabilities on {target_ip}: {e}")
         return None
 
     
@@ -147,6 +145,11 @@ def detect_os(target_ip):
 def scan_net(target_ip, start_port, end_port):
     print(f"Scanning network for target IP: {target_ip}")
     start_time = datetime.now()
+    
+    logger.info(
+        f"Beginning network scan on IP Address: {target_ip} "
+        f"Port Range: {start_port}-{end_port} "
+    )
 
     open_ports = port_scan(target_ip, start_port, end_port)
     if open_ports:
